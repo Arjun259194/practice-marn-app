@@ -4,28 +4,28 @@ const Post = require("../models/Post");
 
 const router = express.Router();
 
-const getCurrDate = () => moment().format("MM ddd, YYYY hh:mm:ss a");
+const getCurrDate = () => moment().format("DD/MM/YYYY");
 
 router.get("/", async (req, res) => {
-  const data = await Post.find()
-    .exec()
-    .catch(error => {
-      console.log(error);
-    });
-
-  if (data) {
-    res.json({
-      status: "OK",
-      data: data,
-    });
-  } else {
-    res.status(400).json({
-      status: "Bad request",
-    });
+  try {
+    const query = Post.find();
+    const data = await query.exec();
+    if (data) {
+      data.forEach(post => {
+        if (post.content.length > 100) {
+          post.content = post.content.substring(0, 100) + "...More";
+        }
+      });
+      res.json(data);
+    } else {
+      res.status(400).json({ status: "Bad request" });
+    }
+  } catch (error) {
+    console.error(error);
   }
 });
 
-router.post("/", (req, res) => {
+router.post("/", async (req, res) => {
   const { title, content, tags } = req.body;
 
   const newPost = new Post({
@@ -37,78 +37,63 @@ router.post("/", (req, res) => {
     tags: tags,
   });
 
-  newPost
-    .save()
-    .then(post => {
-      res.json({
-        message: "Post saved",
-        data: post,
-      });
-    })
-    .catch(error => {
-      res.status(400).json({
-        message: "Bad request",
-      });
-    });
-});
-
-router.get("/:id", async (req, res) => {
-  const data = await Post.findById(req.params.id)
-    .exec()
-    .catch(error => {
-      console.log(error);
-    });
-  if (data) {
-    res.json({
-      status: "OK",
-      data: data,
-    });
-  } else {
-    res.status(400).json({
-      status: "Bad request",
-    });
+  try {
+    const post = await newPost.save();
+    if (post) {
+      res.json({ status: "Post added", post: post });
+    } else {
+      res.status(400).json({ status: "bad request" });
+    }
+  } catch (error) {
+    console.error(error);
   }
 });
 
-router.put("/:id", (req, res) => {
-  const data = req.body;
-  Post.findByIdAndUpdate(req.params.id, data)
-    .then(resData => {
-      if (resData) {
-        res.json({
-          status: "OK",
-          message: "Post updated",
-        });
-      }
-    })
-    .catch(error => {
-      console.log(error);
-      res.status(400).json({
-        status: "Bad request",
-      });
-    });
+router.get("/:id", async (req, res) => {
+  const { id } = req.params;
+  const query = Post.findById(id);
+  try {
+    const data = await query.exec();
+    if (data) {
+      res.json(data);
+    } else {
+      res.status(400).json({ status: "Bad request" });
+    }
+  } catch (error) {
+    console.error(error);
+  }
 });
 
-router.delete("/:id", (req, res) => {
-  Post.findByIdAndRemove(req.params.id)
-    .then(data => {
-      if (data) {
-        res.json({
-          status: "OK",
-          message: "Post deleted",
-          data: data,
-        });
-      } else {
-        res.status(502).json({
-          status: "got an invalid response",
-        });
-      }
-    })
-    .catch(error => {
-      res.status(400).json({
-        status: "Bad request",
-      });
-    });
+router.put("/:id", async (req, res) => {
+  const { id } = req.params;
+  const { title, content, comments, likes, tags } = req.body,
+    data = { title, content, comments, likes, tags };
+  const query = Post.findByIdAndUpdate(id, data);
+  try {
+    const returnData = await query.exec();
+    if (returnData) {
+      res.json({ status: "updated" });
+    } else {
+      res.status(400).json({ status: "Bad request" });
+    }
+  } catch (error) {
+    console.error(error);
+  }
+});
+
+router.delete("/:id", async (req, res) => {
+  const { id } = req.params;
+  const query = Post.findByIdAndRemove(id);
+  try {
+    const data = await query.exec();
+    if (data) {
+      res.json({ status: "Post removed" });
+    } else {
+      res.status(400).json({ status: "bad request" });
+    }
+  } catch (error) {
+    console.error(error);
+  }
 });
 
 module.exports = router;
